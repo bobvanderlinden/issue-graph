@@ -12,13 +12,19 @@ async function authorize(code) {
     client_secret,
     code,
   });
-  const response = await fetch({
+  const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
-    url: "https://github.com/login/oauth/access_token",
     mode: "cors",
     body: parameters.toString(),
   });
+  console.log(
+    response.status,
+    response.statusText,
+    response.type,
+    response.error()
+  );
   const result = new URLSearchParams(await response.text());
+  console.log(result);
   const { access_token, token_type } = result;
 
   console.log(token_type, access_token);
