@@ -4,7 +4,8 @@ const state = url.searchParams.get("state");
 
 const client_id = "a2ae08b0ac8be98aa2ae";
 const client_secret = "994a627b52b2080b1eb5249d88bf21c91fc64bc5";
-const redirect_uri = "https://bobvanderlinden.github.io/issue-graph/";
+// const redirect_uri = "https://bobvanderlinden.github.io/issue-graph/";
+const redirect_uri = window.location.origin + window.location.pathname;
 
 async function authorize(code) {
   const parameters = new URLSearchParams({
@@ -12,11 +13,18 @@ async function authorize(code) {
     client_secret,
     code,
   });
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    mode: "cors",
-    body: parameters.toString(),
-  });
+  const response = await fetch(
+    "https://d19wjdqel2942y.cloudfront.net/login/oauth/access_token",
+    {
+      method: "POST",
+      mode: "cors",
+      headers: {
+        "Content-Type": "text/plain",
+        Host: "github.com",
+      },
+      body: parameters.toString(),
+    }
+  );
   console.log(
     response.status,
     response.statusText,
