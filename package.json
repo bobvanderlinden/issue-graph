@@ -1,0 +1,24 @@
+{
+  "name": "issue-graph",
+  "version": "1.0.0",
+  "description": "A web-based graph visualizer for GitHub issues and pull requests.",
+  "main": "main.js",
+  "dependencies": {
+    "vis-data": "^7.1.2",
+    "vis-network": "^9.0.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bobvanderlinden/issue-graph.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bobvanderlinden/issue-graph/issues"
+  },
+  "homepage": "https://github.com/bobvanderlinden/issue-graph#readme"
+}

@@ -10,7 +10,7 @@
       in {
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nodePackages.http-server
+            esbuild
           ];
         };
       }
