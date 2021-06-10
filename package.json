@@ -4,6 +4,7 @@
   "description": "A web-based graph visualizer for GitHub issues and pull requests.",
   "main": "main.js",
   "dependencies": {
+    "buckets-js": "^1.98.2",
     "vis-data": "^7.1.2",
     "vis-network": "^9.0.4"
   },

@@ -5,85 +5,81 @@ class GitHubClient {
     const graphqlUrl = "https://api.github.com/graphql";
     this.graphql = new GraphQLClient(graphqlUrl, {
       headers: {
-        authorization: `Bearer ${token}`,
+        authorization: `token ${token}`,
       },
     });
   }
 
-  async getIssue({ owner, repo, number }) {
-    const result = await this.graphql.request(
-      gql`
-        query ($owner: String!, $repo: String!, $number: Int!) {
-          repository(owner: $owner, name: $repo) {
-            issue(number: $number) {
-              url
-              title
-              body
-              state
-              timelineItems(first: 100) {
-                nodes {
-                  ... on CrossReferencedEvent {
-                    source {
-                      ... on UniformResourceLocatable {
-                        url
-                      }
-                    }
+  async getIssueOrPullRequest({ owner, repo, number }) {
+    const section = `
+      title
+      body
+      author {
+        login
+        avatarUrl
+      }
+      timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+        nodes {
+          ... on CrossReferencedEvent {
+            source {
+              ... on Issue {
+                repository {
+                  owner {
+                    login
                   }
+                  name
                 }
+                number
               }
-              comments(first: 100) {
-                nodes {
-                  author {
-                    url
+              
+              ... on PullRequest {
+                repository {
+                  owner {
+                    login
                   }
-                  body
+                  name
                 }
-              }
-            }
-          }
-        }
-      `,
-      { owner, repo, number }
-    );
-    return result.repository.issue;
-  }
-
-  async getPullRequest({ owner, repo, number }) {
-    const result = await this.graphql.request(
-      gql`
-        query ($owner: String!, $repo: String!, $number: Int!) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $number) {
-              url
-              title
-              body
-              state
-              timelineItems(first: 100) {
-                nodes {
-                  ... on CrossReferencedEvent {
-                    source {
-                      ... on UniformResourceLocatable {
-                        url
-                      }
-                    }
-                  }
-                }
-              }
-              comments(first: 100) {
-                nodes {
-                  author {
-                    url
-                  }
-                  body
-                }
+                number
               }
             }
           }
         }
+      }
+      comments(first: 100) {
+        nodes {
+          author {
+            url
+          }
+          body
+        }
+      }
+    `;
+    const result = await this.graphql.request(
+      gql`
+      query ($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          issueOrPullRequest(number: $number) {
+            ... on UniformResourceLocatable {
+              url
+            }
+            
+            ... on PullRequest {
+              pullRequestState: state
+              isDraft
+              ${section}
+            }
+            
+            ... on Issue {
+              issueState: state
+              ${section}
+            }
+          }
+        }
+      }
       `,
       { owner, repo, number }
     );
-    return result.repository.pullRequest;
+    return result.repository.issueOrPullRequest;
   }
 
   getRepositories({ organization }) {
