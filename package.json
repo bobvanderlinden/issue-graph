@@ -9,11 +9,12 @@
     "vis-network": "^9.0.4"
   },
   "devDependencies": {
+    "esbuild": "^0.12.8",
     "parcel-bundler": "^1.12.5"
   },
   "scripts": {
-    "start": "parcel serve src/index.html",
-    "build": "parcel build src/index.html --public-url ./",
+    "start": "(cd src && esbuild main.js --bundle --serve --servedir=.)",
+    "build": "esbuild src/main.js --bundle --minify --sourcemap=external --outdir=dist && cp -f src/index.html dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -23,7 +24,7 @@
   "browserslist": [
     "since 2019-01"
   ],
-  "author": "",
+  "author": "Bob van der Linden <bobvanderlinden@gmail.com>",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/bobvanderlinden/issue-graph/issues"
