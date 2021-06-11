@@ -227,28 +227,28 @@ const network = new Network(root, data, options);
 
 network.on("hoverNode", () => {});
 
-network.on("click", () => {
-  nodes.forEach((node) => {
-    node.opacity = 0.1;
-    nodes.update(node);
-  });
+// network.on("click", () => {
+//   nodes.forEach((node) => {
+//     node.opacity = 0.1;
+//     nodes.update(node);
+//   });
 
-  const queue = [initialWork[nodeSymbol].id];
-  const seen = new Set();
-  while (queue.length) {
-    const nodeId = queue.shift();
-    for (const childNodeId of network.getConnectedNodes(nodeId, "to")) {
-      if (!seen.has(childNodeId)) {
-        seen.add(childNodeId);
-        queue.push(childNodeId);
-      }
-    }
+//   const queue = [initialWork[nodeSymbol].id];
+//   const seen = new Set();
+//   while (queue.length) {
+//     const nodeId = queue.shift();
+//     for (const childNodeId of network.getConnectedNodes(nodeId, "to")) {
+//       if (!seen.has(childNodeId)) {
+//         seen.add(childNodeId);
+//         queue.push(childNodeId);
+//       }
+//     }
 
-    const node = nodes.get(nodeId);
-    node.opacity = 1;
-    nodes.update(node);
-  }
-});
+//     const node = nodes.get(nodeId);
+//     node.opacity = 1;
+//     nodes.update(node);
+//   }
+// });
 
 network.on("doubleClick", ({ nodes: selectedNodeIds }) => {
   if (selectedNodeIds.length) {
