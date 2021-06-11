@@ -8,8 +8,12 @@
     "vis-data": "^7.1.2",
     "vis-network": "^9.0.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "parcel-bundler": "^1.12.5"
+  },
   "scripts": {
+    "start": "parcel serve src/index.html",
+    "build": "parcel build src/index.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
