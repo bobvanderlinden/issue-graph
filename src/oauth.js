@@ -37,7 +37,18 @@ async function authorize(code) {
 
 async function getAccessToken() {
   const url = new URL(window.location.href);
+
+  const token = url.searchParams.get("token");
+  if (token) {
+    return token;
+  }
+
   const code = url.searchParams.get("code");
+
+  if (code) {
+    return await authorize(code);
+  }
+
   const state = url.searchParams.get("state");
 
   const redirect_uri = new URL(
@@ -45,19 +56,15 @@ async function getAccessToken() {
   );
   redirect_uri.searchParams.set("url", url.searchParams.get("url"));
 
-  if (!code) {
-    const parameters = new URLSearchParams({
-      client_id,
-      client_secret,
-      redirect_uri: redirect_uri.toString(),
-      scope: "repo",
-      state: "123",
-    });
-    window.location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
-    return null;
-  } else {
-    return await authorize(code);
-  }
+  const parameters = new URLSearchParams({
+    client_id,
+    client_secret,
+    redirect_uri: redirect_uri.toString(),
+    scope: "repo",
+    state: "",
+  });
+  window.location.href = `https://github.com/login/oauth/authorize?${parameters.toString()}`;
+  return null;
 }
 
 module.exports = {
