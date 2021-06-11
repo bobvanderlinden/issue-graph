@@ -20,6 +20,9 @@
     "type": "git",
     "url": "git+https://github.com/bobvanderlinden/issue-graph.git"
   },
+  "browserslist": [
+    "since 2019-01"
+  ],
   "author": "",
   "license": "ISC",
   "bugs": {
