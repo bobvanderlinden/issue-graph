@@ -260,7 +260,6 @@ network.on("doubleClick", ({ nodes: selectedNodeIds }) => {
 
 async function run() {
   const token = await getAccessToken();
-  console.log(token);
 
   client = new GitHubClient({ token });
 

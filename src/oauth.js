@@ -19,9 +19,7 @@ async function authorize(code) {
     }
   );
   const text = await response.text();
-  console.log(text);
   const result = new URLSearchParams(text);
-  console.log(result);
   if (result.get("error")) {
     const url = new URL(window.location.href);
     const redirect_uri = new URL(
