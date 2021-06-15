@@ -1,14 +1,67 @@
 const { GitHubClient } = require("./github-client");
 const { DataSet } = require("vis-data");
 const { Network } = require("vis-network");
-const { parseGitHubUrl, getReferences } = require("./references");
-const { getAccessToken } = require("./oauth");
+const {
+  parseGitHubUrl,
+  getReferences,
+  ReferenceParser,
+} = require("./reference-parser");
+const { getAccessToken } = require("./github-auth");
+
+const referenceTypes = {
+  default: {
+    alias: { id: "refers" },
+  },
+  refers: {
+    prefixes: ["refers", "refer", "reference"],
+    edge: {
+      color: {
+        color: "#848484",
+        opacity: 0.1,
+      },
+      length: 200,
+    },
+    follow: false,
+  },
+  requires: {
+    prefixes: ["requires", "depends on", "depends", "needs"],
+    edge: {
+      color: "red",
+      length: 50,
+    },
+  },
+  required_by: {
+    prefixes: ["required by", "needed by"],
+    alias: { id: "requires", reverse: true },
+  },
+  resolves: {
+    prefixes: ["resolve", "resolves", "resolved"],
+    alias: { id: "requires", reverse: true },
+  },
+  closes: {
+    prefixes: ["close", "closes", "closed"],
+    alias: { id: "requires", reverse: true },
+  },
+  fixes: {
+    prefixes: ["fixes", "fix", "fixed"],
+    alias: { id: "requires", reverse: true },
+  },
+  part_of: {
+    prefixes: ["part of"],
+    alias: { id: "requires", reverse: true },
+  },
+  superseded_by: {
+    prefixes: ["superseded by"],
+    alias: { id: "requires" },
+  },
+};
 
 let client;
 
 const nodeSymbol = Symbol("node");
 const lookup = {};
 const workQueue = [];
+const referenceParser = new ReferenceParser(referenceTypes);
 
 function queue(work) {
   const { owner, repo, number, depth } = work;
@@ -43,7 +96,12 @@ async function tryCatch(tryer, catcher) {
 }
 
 async function handleWork(work) {
-  const { owner, repo, number, depth } = work;
+  const { owner, repo, number, source, depth } = work;
+  const current = {
+    owner,
+    repo,
+    number,
+  };
   const { result, error } = await tryCatch(
     async () => ({
       result: await client.getIssueOrPullRequest({ owner, repo, number }),
@@ -60,7 +118,23 @@ async function handleWork(work) {
     });
     return;
   }
-  const node = createNode({ owner, repo, number, ...result });
+
+  const position = (() => {
+    if (source) {
+      const sourceId = getId(source);
+      const position = network.getPositions([sourceId])[sourceId];
+      const angle = Math.random() * Math.PI * 2;
+      return {
+        x: position.x + Math.cos(angle) * 100,
+        y: position.y + Math.sin(angle) * 100,
+      };
+    } else {
+      return { x: 0, y: 0 };
+    }
+  })();
+
+  const node = createNode({ owner, repo, number, position, ...result });
+
   work[nodeSymbol] = node;
   nodes.add(node);
 
@@ -69,62 +143,49 @@ async function handleWork(work) {
     const owner = source.repository.owner.login;
     const repo = source.repository.name;
     const number = source.number;
-    queue({ owner, repo, number, depth: depth + 1 });
+    queue({ owner, repo, number, source: work, depth: depth + 1 });
   }
 
-  const allowedReferenceNames = new Set([
-    "requires",
-    "required_by",
-    "part_of",
-    "fixes",
-    "resolves",
-    "closes",
-  ]);
-
-  const references = getReferences({ owner, repo, text: result.body });
+  const references = referenceParser.getReferences({
+    source: current,
+    text: result.body,
+  });
   for (const reference of references) {
-    if (!allowedReferenceNames.has(reference.name)) {
-      continue;
+    if (reference.follow) {
+      queue({ ...reference.target, source: work, depth: depth + 1 });
     }
-    queue({ ...reference.target, depth: depth + 1 });
-    edges.add(
-      createEdge({ owner, repo, number }, reference.name, reference.target)
-    );
+    edges.add(createEdge(reference));
   }
 
   for (const comment of result.comments.nodes) {
-    const references = getReferences({ owner, repo, text: comment.body });
+    const references = referenceParser.getReferences({
+      source: current,
+      text: comment.body,
+    });
     for (const reference of references) {
-      if (!allowedReferenceNames.has(reference.name)) {
-        continue;
+      if (reference.follow) {
+        queue({ ...reference.target, source: current, depth: depth + 1 });
       }
-      queue({ ...reference.target, depth: depth + 1 });
-      edges.add(
-        createEdge({ owner, repo, number }, reference.name, reference.target)
-      );
+      edges.add(createEdge(reference));
     }
   }
-
-  // network.redraw();
 }
 
-function createEdge(source, name, target) {
-  if (
-    ["required_by", "part_of", "fixes", "resolves", "closes"].includes(name)
-  ) {
-    const tmp = target;
-    target = source;
-    source = tmp;
-  }
+function getId({ owner, repo, number }) {
+  return `${owner}/${repo}#${number}`;
+}
+
+function createEdge(reference) {
+  const { source, target, referenceType } = reference;
   return {
-    from: `${source.owner}/${source.repo}#${source.number}`,
-    to: `${target.owner}/${target.repo}#${target.number}`,
-    // label: name,
     arrows: {
       to: {
         enabled: true,
       },
     },
+    ...referenceType.edge,
+    from: getId(source),
+    to: getId(target),
   };
 }
 
@@ -140,6 +201,7 @@ function c(type, attrs, children) {
 }
 
 function createNode({
+  position,
   depth,
   issueState,
   pullRequestState,
@@ -186,6 +248,8 @@ function createNode({
 
   return {
     id: `${owner}/${repo}#${number}`,
+    x: position?.x,
+    y: position?.y,
     title: tooltip,
     label: `${owner}/${repo}#${number}`,
     url,
@@ -222,9 +286,16 @@ const options = {
   edges: {
     shadow: true,
   },
+  physics: {
+    barnesHut: {
+      damping: 0.1,
+      avoidOverlap: 0,
+    },
+    maxVelocity: 10,
+  },
 };
 const network = new Network(root, data, options);
-
+let initialWork;
 network.on("hoverNode", () => {});
 
 // network.on("click", () => {
@@ -266,7 +337,7 @@ async function run() {
   const params = new URL(window.location.href).searchParams;
   const initialUrl = params.get("url");
 
-  const initialWork = { ...parseGitHubUrl(initialUrl), depth: 0 };
+  initialWork = { ...parseGitHubUrl(initialUrl), depth: 0 };
   queue(initialWork);
   worker();
 }
