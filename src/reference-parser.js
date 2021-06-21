@@ -115,6 +115,7 @@ function parseGitHubUrl(url) {
 }
 
 module.exports = {
+  referenceUrlRegex,
   ReferenceParser,
   parseGitHubUrl,
 };

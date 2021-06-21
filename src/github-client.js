@@ -3,11 +3,23 @@ const { GraphQLClient, gql } = require("./graphql-client");
 class GitHubClient {
   constructor({ token }) {
     const graphqlUrl = "https://api.github.com/graphql";
+    const headers = token ? { authorization: `token ${token}` } : {};
     this.graphql = new GraphQLClient(graphqlUrl, {
-      headers: {
-        authorization: `token ${token}`,
-      },
+      headers,
     });
+  }
+
+  async getViewer() {
+    const result = await this.graphql.request(gql`
+      query {
+        viewer {
+          name
+          login
+          avatarUrl
+        }
+      }
+    `);
+    return result.viewer;
   }
 
   async getIssueOrPullRequest({ owner, repo, number }) {
