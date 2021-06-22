@@ -15,6 +15,7 @@ const {
   Container,
   Grid,
   Label,
+  Image,
 } = require("semantic-ui-react");
 const { GitHubClient } = require("./github-client");
 const { GitHubAuthClient } = require("./github-auth-client");
@@ -353,7 +354,16 @@ function AppMenu() {
   return (
     <Menu vertical floated="right">
       {user ? (
-        <Dropdown item direction="left" text={user?.login}>
+        <Dropdown
+          item
+          direction="left"
+          text={
+            <div>
+              <Image src={user.avatarUrl} avatar />
+              {user?.login}
+            </div>
+          }
+        >
           <Dropdown.Menu>
             <Dropdown.Item icon="sign-out" text="Logout" onClick={logout} />
           </Dropdown.Menu>
