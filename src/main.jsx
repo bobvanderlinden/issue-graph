@@ -387,7 +387,6 @@ function App() {
       <Dimmer active={isLoading}>
         <Loader />
       </Dimmer>
-      <AppMenu />
       {isLoading ? undefined : url ? (
         <Graph url={url} />
       ) : (
@@ -397,6 +396,7 @@ function App() {
           }}
         />
       )}
+      <AppMenu />
     </>
   );
 }
