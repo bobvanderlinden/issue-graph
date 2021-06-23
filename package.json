@@ -19,7 +19,7 @@
   },
   "scripts": {
     "start": "(cd src && esbuild main.jsx --bundle --sourcemap --serve --servedir=. --loader:.png=dataurl --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.eot=dataurl --loader:.ttf=dataurl --loader:.svg=dataurl)",
-    "build": "esbuild src/main.js --bundle --minify --sourcemap=external --outdir=dist && cp -f src/index.html dist/",
+    "build": "esbuild src/main.jsx --bundle --minify --sourcemap=external --outdir=dist  --loader:.png=dataurl --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.eot=dataurl --loader:.ttf=dataurl --loader:.svg=dataurl && cp -f src/index.html dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
