@@ -47,7 +47,7 @@ const referenceTypes = {
     follow: false,
   },
   requires: {
-    prefixes: ["requires", "depends on", "depends", "needs"],
+    prefixes: ["requires", "depends on", "depends", "needs", "- [ ]"],
     edge: {
       color: "red",
       length: 50,
