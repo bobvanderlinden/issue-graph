@@ -3,7 +3,7 @@ import "./main.css";
 import { useParam } from "./use-param";
 const React = require("react");
 const { useRef, useCallback, useEffect, useState } = require("react");
-const ReactDOM = require("react-dom");
+const ReactDOM = require("react-dom/client");
 const {
   Icon,
   Dropdown,
@@ -436,7 +436,7 @@ function Root() {
   );
 }
 
-ReactDOM.render(<Root />, document.getElementById("root"));
+ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
 
 // async function run() {
 //   client = new GitHubClient({ token });
