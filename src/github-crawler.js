@@ -106,6 +106,44 @@ export class GitHubCrawler extends EventTarget {
       this.queue({ owner, repo, number, source: work, depth: depth + 1 });
     }
 
+    const subissueType = this.referenceParser.referenceTypes.subissue;
+
+    // GitHub native sub-issue relationships. The edge always points from the
+    // parent to the sub-issue (parent depends on / contains the sub-issue).
+    if (data.parent) {
+      const parent = {
+        owner: data.parent.repository.owner.login,
+        repo: data.parent.repository.name,
+        number: data.parent.number,
+      };
+      this.queue({ ...parent, source: work, depth: depth + 1 });
+      this.dispatchEvent(
+        new ReferenceFoundEvent({
+          referenceType: subissueType,
+          source: parent,
+          target: current,
+        })
+      );
+    }
+
+    if (data.subIssues) {
+      for (const subIssue of data.subIssues.nodes) {
+        const target = {
+          owner: subIssue.repository.owner.login,
+          repo: subIssue.repository.name,
+          number: subIssue.number,
+        };
+        this.queue({ ...target, source: work, depth: depth + 1 });
+        this.dispatchEvent(
+          new ReferenceFoundEvent({
+            referenceType: subissueType,
+            source: current,
+            target,
+          })
+        );
+      }
+    }
+
     const references = this.referenceParser.getReferences({
       source: current,
       text: data.body,

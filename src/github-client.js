@@ -83,6 +83,26 @@ class GitHubClient {
             
             ... on Issue {
               issueState: state
+              parent {
+                repository {
+                  owner {
+                    login
+                  }
+                  name
+                }
+                number
+              }
+              subIssues(first: 100) {
+                nodes {
+                  repository {
+                    owner {
+                      login
+                    }
+                    name
+                  }
+                  number
+                }
+              }
               ${section}
             }
           }

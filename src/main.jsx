@@ -77,6 +77,15 @@ const referenceTypes = {
     prefixes: ["superseded by"],
     alias: { id: "requires" },
   },
+  // GitHub native sub-issue relationship (parent -> sub-issue).
+  subissue: {
+    hierarchical: true,
+    edge: {
+      color: "#8250df",
+      length: 50,
+      dashes: true,
+    },
+  },
 };
 
 function getId({ owner, repo, number }) {
@@ -85,15 +94,22 @@ function getId({ owner, repo, number }) {
 
 function createEdge(reference) {
   const { source, target, referenceType } = reference;
+  const from = getId(source);
+  const to = getId(target);
   return {
     arrows: {
       to: {
         enabled: true,
       },
     },
+    // Hierarchical (sub-issue) edges can be discovered from both the parent
+    // and the sub-issue, so give them a stable id to avoid duplicates.
+    ...(referenceType.hierarchical
+      ? { id: `subissue:${from}->${to}` }
+      : {}),
     ...referenceType.edge,
-    from: getId(source),
-    to: getId(target),
+    from,
+    to,
   };
 }
 
@@ -254,7 +270,7 @@ function Graph({ url }) {
       nodes.add(node);
     });
     crawler.addEventListener("referenceFound", (event) => {
-      edges.add(createEdge(event.reference));
+      edges.update(createEdge(event.reference));
     });
 
     crawler.queue({ ...parseGitHubUrl(url), depth: 0 });
