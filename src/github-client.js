@@ -1,5 +1,122 @@
 const { GraphQLClient, gql } = require("./graphql-client");
 
+const issueOrPullRequestFields = `
+  ... on UniformResourceLocatable {
+    url
+  }
+
+  ... on PullRequest {
+    pullRequestState: state
+    isDraft
+    title
+    body
+    author {
+      login
+      avatarUrl
+    }
+    timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+      nodes {
+        ... on CrossReferencedEvent {
+          source {
+            ... on Issue {
+              repository {
+                owner {
+                  login
+                }
+                name
+              }
+              number
+            }
+
+            ... on PullRequest {
+              repository {
+                owner {
+                  login
+                }
+                name
+              }
+              number
+            }
+          }
+        }
+      }
+    }
+    comments(first: 100) {
+      nodes {
+        author {
+          url
+        }
+        body
+      }
+    }
+  }
+
+  ... on Issue {
+    issueState: state
+    parent {
+      repository {
+        owner {
+          login
+        }
+        name
+      }
+      number
+    }
+    subIssues(first: 100) {
+      nodes {
+        repository {
+          owner {
+            login
+          }
+          name
+        }
+        number
+      }
+    }
+    title
+    body
+    author {
+      login
+      avatarUrl
+    }
+    timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+      nodes {
+        ... on CrossReferencedEvent {
+          source {
+            ... on Issue {
+              repository {
+                owner {
+                  login
+                }
+                name
+              }
+              number
+            }
+
+            ... on PullRequest {
+              repository {
+                owner {
+                  login
+                }
+                name
+              }
+              number
+            }
+          }
+        }
+      }
+    }
+    comments(first: 100) {
+      nodes {
+        author {
+          url
+        }
+        body
+      }
+    }
+  }
+`;
+
 class GitHubClient {
   constructor({ token }) {
     const graphqlUrl = "https://api.github.com/graphql";
@@ -23,95 +140,92 @@ class GitHubClient {
   }
 
   async getIssueOrPullRequest({ owner, repo, number }) {
-    const section = `
-      title
-      body
-      author {
-        login
-        avatarUrl
-      }
-      timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
-        nodes {
-          ... on CrossReferencedEvent {
-            source {
-              ... on Issue {
-                repository {
-                  owner {
-                    login
-                  }
-                  name
-                }
-                number
-              }
-              
-              ... on PullRequest {
-                repository {
-                  owner {
-                    login
-                  }
-                  name
-                }
-                number
-              }
-            }
+    const [{ data, error }] = await this.getIssueOrPullRequests([
+      { owner, repo, number },
+    ]);
+    if (error) {
+      throw error;
+    }
+    return data;
+  }
+
+  async getIssueOrPullRequests(items) {
+    if (!items.length) {
+      return [];
+    }
+
+    const variableDefinitions = [];
+    const repositories = [];
+    const variables = {};
+
+    items.forEach(({ owner, repo, number }, index) => {
+      variableDefinitions.push(
+        `$owner${index}: String!`,
+        `$repo${index}: String!`,
+        `$number${index}: Int!`
+      );
+      repositories.push(`
+        item${index}: repository(owner: $owner${index}, name: $repo${index}) {
+          issueOrPullRequest(number: $number${index}) {
+            ${issueOrPullRequestFields}
           }
         }
-      }
-      comments(first: 100) {
-        nodes {
-          author {
-            url
-          }
-          body
-        }
-      }
-    `;
-    const result = await this.graphql.request(
+      `);
+      variables[`owner${index}`] = owner;
+      variables[`repo${index}`] = repo;
+      variables[`number${index}`] = number;
+    });
+
+    const result = await this.graphql.rawRequest(
       gql`
-      query ($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          issueOrPullRequest(number: $number) {
-            ... on UniformResourceLocatable {
-              url
-            }
-            
-            ... on PullRequest {
-              pullRequestState: state
-              isDraft
-              ${section}
-            }
-            
-            ... on Issue {
-              issueState: state
-              parent {
-                repository {
-                  owner {
-                    login
-                  }
-                  name
-                }
-                number
-              }
-              subIssues(first: 100) {
-                nodes {
-                  repository {
-                    owner {
-                      login
-                    }
-                    name
-                  }
-                  number
-                }
-              }
-              ${section}
-            }
-          }
+        query (${variableDefinitions.join(", ")}) {
+          ${repositories.join("\n")}
         }
-      }
       `,
-      { owner, repo, number }
+      variables
     );
-    return result.repository.issueOrPullRequest;
+
+    const itemErrors = new Map();
+    const globalErrors = [];
+    for (const error of result.errors || []) {
+      const alias = error.path && error.path[0];
+      if (typeof alias === "string" && alias.startsWith("item")) {
+        const errors = itemErrors.get(alias) || [];
+        errors.push(error);
+        itemErrors.set(alias, errors);
+      } else {
+        globalErrors.push(error);
+      }
+    }
+
+    if (globalErrors.length) {
+      this.graphql.checkResult({ ...result, errors: globalErrors });
+    }
+
+    return items.map(({ owner, repo, number }, index) => {
+      const alias = `item${index}`;
+      const errors = itemErrors.get(alias);
+      if (errors) {
+        return {
+          error: new Error(
+            `GraphQL query resulted in the following errors:\n${errors
+              .map(({ message }) => `* ${message}`)
+              .join("\n")}`
+          ),
+        };
+      }
+
+      const item = result.data && result.data[alias];
+      if (!item || !item.issueOrPullRequest) {
+        return {
+          error: new Error(`Unable to fetch ${owner}/${repo}#${number}`),
+        };
+      }
+
+      return {
+        data: item.issueOrPullRequest,
+      };
+    });
   }
 
   getRepositories({ organization }) {

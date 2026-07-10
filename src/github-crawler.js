@@ -56,13 +56,13 @@ export class GitHubCrawler extends EventTarget {
     this.workQueue.unshift(work);
   }
 
-  start(concurrency = 1) {
+  start(concurrency = 1, batchSize = 10) {
     if (this.abortController) {
       this.abortController.abort();
     }
     this.abortController = new AbortController();
     for (let i = 0; i < concurrency; i++) {
-      this.worker(this.abortController.signal);
+      this.worker(this.abortController.signal, batchSize);
     }
   }
 
@@ -70,31 +70,70 @@ export class GitHubCrawler extends EventTarget {
     this.abortController.abort();
   }
 
-  async worker(signal) {
+  async worker(signal, batchSize) {
     while (this.workQueue.length && !signal.aborted) {
-      const work = this.workQueue.pop();
-      await this.handleWork(work);
+      const works = this.getWorkBatch(batchSize);
+      await this.handleWorks(works);
     }
   }
 
+  getWorkBatch(batchSize) {
+    const works = [];
+    while (works.length < batchSize && this.workQueue.length) {
+      works.push(this.workQueue.pop());
+    }
+    return works;
+  }
+
   async handleWork(work) {
-    const { owner, repo, number, source, depth } = work;
-    const current = {
-      owner,
-      repo,
-      number,
-    };
-    const { data, error } = await tryCatch(
-      async () => ({
-        data: await this.client.getIssueOrPullRequest({ owner, repo, number }),
-      }),
-      async (error) => ({ error })
-    );
+    const [{ data, error }] = await this.fetchWorks([work]);
 
     if (error) {
       this.dispatchEvent(new NodeErrorEvent(work, error));
       return;
     }
+
+    this.handleWorkData(work, data);
+  }
+
+  async handleWorks(works) {
+    const results = await this.fetchWorks(works);
+
+    for (let index = 0; index < works.length; index++) {
+      const work = works[index];
+      const { data, error } = results[index];
+
+      if (error) {
+        this.dispatchEvent(new NodeErrorEvent(work, error));
+        continue;
+      }
+
+      this.handleWorkData(work, data);
+    }
+  }
+
+  async fetchWorks(works) {
+    const { data, error } = await tryCatch(
+      async () => ({
+        data: await this.client.getIssueOrPullRequests(works),
+      }),
+      async (error) => ({ error })
+    );
+
+    if (error) {
+      return works.map(() => ({ error }));
+    }
+
+    return data;
+  }
+
+  handleWorkData(work, data) {
+    const { owner, repo, number, depth } = work;
+    const current = {
+      owner,
+      repo,
+      number,
+    };
 
     this.dispatchEvent(new NodeFoundEvent({ owner, repo, number, ...data }));
 
