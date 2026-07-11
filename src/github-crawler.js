@@ -56,7 +56,7 @@ export class GitHubCrawler extends EventTarget {
     this.workQueue.unshift(work);
   }
 
-  start(concurrency = 1, batchSize = 10) {
+  start(concurrency = 1, batchSize = 3) {
     if (this.abortController) {
       this.abortController.abort();
     }
@@ -121,6 +121,14 @@ export class GitHubCrawler extends EventTarget {
     );
 
     if (error) {
+      if (works.length > 1) {
+        const middle = Math.ceil(works.length / 2);
+        return [
+          ...(await this.fetchWorks(works.slice(0, middle))),
+          ...(await this.fetchWorks(works.slice(middle))),
+        ];
+      }
+
       return works.map(() => ({ error }));
     }
 
